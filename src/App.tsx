@@ -99,7 +99,10 @@ export const App: React.FC = () => {
   const handleDownload = () => {
     if (!result || !currentFile) return;
 
-    const blob = new Blob([result.darkPdfBytes as BlobPart], { type: 'application/pdf' });
+    // 通过 slice 创建一个明确类型的 ArrayBuffer，彻底绕开 SharedArrayBuffer 类型问题
+    const bytes = result.darkPdfBytes;
+    const plainBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const blob = new Blob([plainBuffer], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const downloadName = `dark_${currentFile.name.replace(/\.pdf$/i, '')}.pdf`;
 

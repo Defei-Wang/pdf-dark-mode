@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFArray } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFArray, PDFRef } from 'pdf-lib';
 import { ConversionResult } from '../types';
 
 export interface ConvertOptions {
@@ -81,18 +81,26 @@ export async function convertPdfToDarkMode(
     const darkStream = context.flateStream(darkOps);
     const darkRef = context.register(darkStream);
 
-    // 6. 将两个流分别拼接到原文档 Contents 流的最前面和最后面
+    // 6. 安全地将两个流注入到 Contents 首尾
+    // normalize() 确保 Contents 是 PDFArray（单流转数组，或已是数组则不变）
     page.node.normalize();
     const contents = page.node.Contents();
+
     if (contents instanceof PDFArray) {
+      // 有原始内容流（normalize 后正常情况）：在数组首尾包裹两个新流
       page.node.wrapContentStreams(bgRef, darkRef);
+    } else if (contents instanceof PDFRef) {
+      // normalize 后极少数情况仍为单个 ref（某些 PDF 写法），手动组合
+      page.node.set(PDFName.of('Contents'), context.obj([bgRef, contents, darkRef]));
     } else {
+      // 空白页
       page.node.set(PDFName.of('Contents'), context.obj([bgRef, darkRef]));
     }
   }
 
-  // 7. 导出二进制数据
-  const darkPdfBytes = await pdfDoc.save({ useObjectStreams: false });
+  // 7. 导出二进制数据（防御性复制，确保是独立的 ArrayBuffer 支持的 Uint8Array）
+  const rawBytes = await pdfDoc.save({ useObjectStreams: false });
+  const darkPdfBytes = new Uint8Array(rawBytes.buffer, rawBytes.byteOffset, rawBytes.byteLength);
   const durationMs = Math.round(performance.now() - startTime);
 
   return {
