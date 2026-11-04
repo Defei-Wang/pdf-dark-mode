@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFDict, PDFArray, PDFRef } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFArray } from 'pdf-lib';
 import { ConversionResult } from '../types';
 
 export interface ConvertOptions {
@@ -18,10 +18,9 @@ export async function convertPdfToDarkMode(
   const startTime = performance.now();
   const { diffColor, onProgress } = options;
 
-  // 1. 使用 pdf-lib 解析 PDF
-  const pdfDoc = await PDFDocument.load(pdfBuffer, {
-    ignoreEncryption: false,
-    parseSpeed: 1,
+  // 1. 使用 pdf-lib 解析 PDF，启用 ignoreEncryption: true 兼容带权限保护的常规学术/办公文档
+  const pdfDoc = await PDFDocument.load(pdfBuffer.slice(0), {
+    ignoreEncryption: true,
   });
 
   const context = pdfDoc.context;
@@ -67,44 +66,8 @@ export async function convertPdfToDarkMode(
     const wStr = width.toFixed(2).replace(/\.?0+$/, '');
     const hStr = height.toFixed(2).replace(/\.?0+$/, '');
 
-    // 确保页面拥有独立的 Resources 字典
-    let pageResEntry = page.node.get(PDFName.of('Resources'));
-    let resources: PDFDict;
-
-    if (pageResEntry instanceof PDFRef) {
-      resources = context.lookup(pageResEntry) as PDFDict;
-    } else if (pageResEntry instanceof PDFDict) {
-      resources = pageResEntry;
-    } else {
-      // 页面自身无 Resources，检查是否继承自父节点
-      const inherited = page.node.Resources();
-      resources = context.obj({});
-      if (inherited instanceof PDFDict) {
-        for (const [key, val] of inherited.entries()) {
-          resources.set(key, val);
-        }
-      }
-      page.node.set(PDFName.of('Resources'), resources);
-    }
-
-    // 确保 Resources 字典中包含 ExtGState 字典
-    let extGStateEntry = resources.get(PDFName.of('ExtGState'));
-    let extGState: PDFDict;
-
-    if (!extGStateEntry) {
-      extGState = context.obj({});
-      resources.set(PDFName.of('ExtGState'), extGState);
-    } else if (extGStateEntry instanceof PDFRef) {
-      extGState = context.lookup(extGStateEntry) as PDFDict;
-    } else if (extGStateEntry instanceof PDFDict) {
-      extGState = extGStateEntry;
-    } else {
-      extGState = context.obj({});
-      resources.set(PDFName.of('ExtGState'), extGState);
-    }
-
-    // 注入差值 ExtGState 引用
-    extGState.set(gsDarkName, extGStateRef);
+    // 使用 pdf-lib 原生标准化方法安全注入 ExtGState
+    page.node.setExtGState(gsDarkName, extGStateRef);
 
     // 4. 生成底层垫白操作流 (防止原文档透明背景导致反转异常)
     // q 1 1 1 rg x y w h re f Q
@@ -119,27 +82,17 @@ export async function convertPdfToDarkMode(
     const darkRef = context.register(darkStream);
 
     // 6. 将两个流分别拼接到原文档 Contents 流的最前面和最后面
-    const contentsEntry = page.node.get(PDFName.of('Contents'));
-
-    if (!contentsEntry) {
-      page.node.set(PDFName.of('Contents'), context.obj([bgRef, darkRef]));
-    } else if (contentsEntry instanceof PDFRef) {
-      page.node.set(PDFName.of('Contents'), context.obj([bgRef, contentsEntry, darkRef]));
-    } else if (contentsEntry instanceof PDFArray) {
-      // 深度拷贝以避免对被共享数组引用的意外副作用
-      const newArray = context.obj([bgRef]);
-      for (let j = 0; j < contentsEntry.size(); j++) {
-        newArray.push(contentsEntry.get(j));
-      }
-      newArray.push(darkRef);
-      page.node.set(PDFName.of('Contents'), newArray);
+    page.node.normalize();
+    const contents = page.node.Contents();
+    if (contents instanceof PDFArray) {
+      page.node.wrapContentStreams(bgRef, darkRef);
     } else {
       page.node.set(PDFName.of('Contents'), context.obj([bgRef, darkRef]));
     }
   }
 
   // 7. 导出二进制数据
-  const darkPdfBytes = await pdfDoc.save();
+  const darkPdfBytes = await pdfDoc.save({ useObjectStreams: false });
   const durationMs = Math.round(performance.now() - startTime);
 
   return {

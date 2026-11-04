@@ -37,9 +37,10 @@ export const App: React.FC = () => {
           },
         });
         setResult(conversion);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('转换失败:', err);
-        alert('转换 PDF 失败，请检查文件是否加密或损坏。');
+        const errMsg = err instanceof Error ? err.message : String(err);
+        alert(`转换 PDF 失败：${errMsg}\n\n若文件被强密码加密保护，请先解除密码后再上传。`);
       } finally {
         setIsProcessing(false);
         setProgress(null);
@@ -52,8 +53,8 @@ export const App: React.FC = () => {
   const handleFileSelect = async (file: File) => {
     try {
       const buffer = await file.arrayBuffer();
-      // 使用 pdf-lib 快速探测页数
-      const doc = await PDFDocument.load(buffer, { ignoreEncryption: false });
+      // 使用 pdf-lib 快速探测页数 (允许读取带有标准权限限制或空密码的常规文档)
+      const doc = await PDFDocument.load(buffer.slice(0), { ignoreEncryption: true });
       const pageCount = doc.getPageCount();
 
       const fileInfo: PdfFileInfo = {
