@@ -106,37 +106,45 @@ export const App: React.FC = () => {
     };
   }, [currentFile, selectedPreset, customColor, isCustom, runConversion]);
 
-  // 下载导出 (彻底修复 Chromium 浏览器 0 字节下载缺陷)
+  // 下载导出
   const handleDownload = () => {
     if (!result || !currentFile) return;
 
-    // 1. 独立切片 ArrayBuffer，确保干净纯粹的二进制边界
-    const bytes = result.darkPdfBytes;
-    const safeBuffer = bytes.buffer.slice(
-      bytes.byteOffset,
-      bytes.byteOffset + bytes.byteLength
-    ) as ArrayBuffer;
+    try {
+      const bytes = result.darkPdfBytes;
 
-    // 2. 构造 application/pdf Blob
-    const blob = new Blob([safeBuffer], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const downloadName = `dark_${currentFile.name.replace(/\.pdf$/i, '')}.pdf`;
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = downloadName;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-
-    // 3. 严禁立即同步 revokeObjectURL！现代 Chromium 浏览器收到 a.click 后是异步拉取 Blob 流，
-    // 若立即同步 revoke 会导致下载流中断，从而生成 0 字节空文件。延迟 60 秒足够下载完成。
-    window.setTimeout(() => {
-      if (document.body.contains(a)) {
-        document.body.removeChild(a);
+      // 检查 buffer 是否被 pdf.js 转移导致 detached（若修复正确则不会出现）
+      if (bytes.buffer.byteLength === 0) {
+        throw new Error('内部数据已失效，请重新上传 PDF 再下载。');
       }
-      URL.revokeObjectURL(url);
-    }, 60000);
+
+      // 创建完全独立的 ArrayBuffer 切片，彻底隔离外部引用
+      const safeBuffer = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength
+      ) as ArrayBuffer;
+
+      const blob = new Blob([safeBuffer], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const downloadName = `dark_${currentFile.name.replace(/\.pdf$/i, '')}.pdf`;
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = downloadName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+
+      // 延迟回收 ObjectURL：Chromium 异步读取 Blob 流，立即 revoke 会导致 0 字节文件
+      window.setTimeout(() => {
+        if (document.body.contains(a)) document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 60000);
+    } catch (err) {
+      console.error('下载失败:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`下载失败：${msg}`);
+    }
   };
 
   // 生成内置学术论文演示 PDF，方便用户免找文件一键体验

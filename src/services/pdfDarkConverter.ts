@@ -121,7 +121,13 @@ export async function convertPdfToDarkMode(
 
   // 7. 导出二进制数据
   const rawBytes = await pdfDoc.save({ useObjectStreams: false });
-  const darkPdfBytes = new Uint8Array(rawBytes.buffer, rawBytes.byteOffset, rawBytes.byteLength);
+  // 创建完全独立的 Uint8Array（新 buffer），防止 pdf.js 预览时 transfer 该 buffer 后
+  // 下载操作读取到 detached 状态，表现为下载无响应或 0 字节。
+  const independentBuffer = rawBytes.buffer.slice(
+    rawBytes.byteOffset,
+    rawBytes.byteOffset + rawBytes.byteLength
+  );
+  const darkPdfBytes = new Uint8Array(independentBuffer);
   const durationMs = Math.round(performance.now() - startTime);
 
   return {

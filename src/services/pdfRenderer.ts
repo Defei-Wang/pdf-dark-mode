@@ -8,11 +8,19 @@ export type PdfJsDocument = pdfjsLib.PDFDocumentProxy;
 
 /**
  * 加载 PDF 文档
+ *
+ * ⚠️ 重要：PDF.js 的 getDocument({ data }) 会将传入的 ArrayBuffer 作为
+ *    Transferable 转移给 Worker 线程，导致原始 buffer 进入 detached 状态。
+ *    此处必须先将外部数据拷贝到独立的新 Uint8Array，再传入 pdf.js，
+ *    确保调用方持有的原始字节不受任何影响。
  */
 export async function loadPdfJsDocument(data: Uint8Array | ArrayBuffer): Promise<PdfJsDocument> {
-  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  // 防御性拷贝：无论 data 是 Uint8Array 还是 ArrayBuffer，都创建一个全新独立的副本
+  const srcBytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const safeCopy = new Uint8Array(srcBytes); // ← 新独立 buffer，pdf.js transfer 后只影响副本
+
   const loadingTask = pdfjsLib.getDocument({
-    data: bytes,
+    data: safeCopy,
     cMapUrl: undefined,
     cMapPacked: true,
   });
