@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://Defei-Wang.github.io/pdf-dark-mode/sitemap.xml
+

@@ -246,7 +246,7 @@ export const App: React.FC = () => {
         color: rgb(0.1, 0.1, 0.1),
       });
 
-      const bodyText2 = `Because no rasterization occurs, all font glyphs remain fully scalable vector beziers. Users can zoom up to 6400% without experiencing any anti-aliasing artifacts or blurred edges. Moreover, all OCR text layers, hyperlinks, form fields, and table structures remain 100% intact.`;
+      const bodyText2 = `Because no rasterization occurs, all font glyphs remain fully scalable vector beziers. Users can zoom in to any level without experiencing any anti-aliasing artifacts or blurred edges. Moreover, all OCR text layers, hyperlinks, form fields, and table structures remain 100% intact.`;
 
       page1.drawText(bodyText2, {
         x: 50,

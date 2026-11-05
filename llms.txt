@@ -17,7 +17,7 @@ Unlike typical PDF dark mode converters that rasterize pages to canvas bitmaps (
 1. Injects a graphics state dictionary `<< /Type /ExtGState /BM /Difference >>` as `/GS_Dark`.
 2. Prepends an underlay stream `q 1 1 1 rg [x y w h] re f Q q` to provide an opaque white backdrop.
 3. Appends an overlay stream `Q q /GS_Dark gs [r g b] rg [x y w h] re f Q` to invert colors using the PDF 1.4 Difference blend mode: `| C_backdrop - C_source |`.
-4. All vector beziers, embedded fonts, and OCR text layers remain completely intact and selectable up to 6400% zoom.
+4. All vector beziers, embedded fonts, and OCR text layers remain completely intact and selectable at any zoom level.
 5. All processing is 100% offline and in-memory; no files are ever sent to an external server.
 
 ## Features
@@ -28,3 +28,4 @@ Unlike typical PDF dark mode converters that rasterize pages to canvas bitmaps (
 - **Bilingual**: One-click language switch between English and Chinese with persistent storage.
 - **Zero-Byte Download Protection**: Safe typed array slicing and delayed URL revocation to prevent chromium download stream drops.
 - **Encrypted/Permission PDF Support**: Uses @cantoo/pdf-lib for seamless handling of standard permission-restricted and empty-password documents.
+
