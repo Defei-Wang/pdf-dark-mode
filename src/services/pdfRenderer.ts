@@ -10,7 +10,13 @@ export type PdfJsDocument = pdfjsLib.PDFDocumentProxy;
  * 加载 PDF 文档
  */
 export async function loadPdfJsDocument(data: Uint8Array | ArrayBuffer): Promise<PdfJsDocument> {
-  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  // pdf.js 会把 data 的底层 ArrayBuffer 转移（transfer）给 Worker 线程，
+  // 转移后主线程上的原 buffer 会被分离（detached），再次使用就会抛出
+  // "Cannot perform ArrayBuffer.prototype.slice on a detached ArrayBuffer"。
+  // 因此这里必须复制一份独立数据，绝不能直接复用调用方传入的 buffer。
+  const source = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const bytes = new Uint8Array(source.byteLength);
+  bytes.set(source);
   const loadingTask = pdfjsLib.getDocument({
     data: bytes,
     cMapUrl: undefined,

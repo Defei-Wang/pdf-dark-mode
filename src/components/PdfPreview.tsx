@@ -22,42 +22,60 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
   const [renderError, setRenderError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const originalDocRef = useRef<PdfJsDocument | null>(null);
-  const darkDocRef = useRef<PdfJsDocument | null>(null);
+  // 用 state 而不是 ref 保存已加载的文档：文档加载完成后必须触发重新渲染，
+  // 否则会出现“按钮已经切换、画面却还是上一个配色”的错位。
+  const [originalDoc, setOriginalDoc] = useState<PdfJsDocument | null>(null);
+  const [darkDoc, setDarkDoc] = useState<PdfJsDocument | null>(null);
   const currentRenderRef = useRef<RenderHandle | null>(null);
 
   // 加载原版 PDF.js 文档对象
   useEffect(() => {
     if (!originalPdfBuffer) {
-      originalDocRef.current = null;
+      setOriginalDoc(null);
       return;
     }
 
+    setOriginalDoc(null);
     let isSubscribed = true;
+    let loadedDoc: PdfJsDocument | null = null;
     loadPdfJsDocument(originalPdfBuffer)
       .then((doc) => {
-        if (isSubscribed) originalDocRef.current = doc;
+        if (!isSubscribed) {
+          void doc.destroy();
+          return;
+        }
+        loadedDoc = doc;
+        setOriginalDoc(doc);
       })
       .catch((err) => {
+        if (!isSubscribed) return;
         console.error('加载原始 PDF 预览失败', err);
       });
 
     return () => {
       isSubscribed = false;
+      void loadedDoc?.destroy();
     };
   }, [originalPdfBuffer]);
 
   // 加载转换后的暗色 PDF.js 文档对象
   useEffect(() => {
     if (!darkPdfBytes) {
-      darkDocRef.current = null;
+      setDarkDoc(null);
       return;
     }
 
+    setDarkDoc(null);
     let isSubscribed = true;
+    let loadedDoc: PdfJsDocument | null = null;
     loadPdfJsDocument(darkPdfBytes)
       .then((doc) => {
-        if (isSubscribed) darkDocRef.current = doc;
+        if (!isSubscribed) {
+          void doc.destroy();
+          return;
+        }
+        loadedDoc = doc;
+        setDarkDoc(doc);
       })
       .catch((err) => {
         console.error('加载暗色 PDF 预览失败', err);
@@ -66,15 +84,20 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
 
     return () => {
       isSubscribed = false;
+      void loadedDoc?.destroy();
     };
   }, [darkPdfBytes]);
 
   // 当文档、页码、缩放或显示模式变化时渲染指定页面
   useEffect(() => {
-    const activeDoc = viewMode === 'dark' ? darkDocRef.current : originalDocRef.current;
+    const activeDoc = viewMode === 'dark' ? darkDoc : originalDoc;
     const canvas = canvasRef.current;
 
-    if (!activeDoc || !canvas) return;
+    if (!activeDoc || !canvas) {
+      setIsRendering(false);
+      return;
+    }
+    let isActive = true;
 
     // 取消上一次未完成的渲染
     if (currentRenderRef.current) {
@@ -95,9 +118,11 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
 
     handle.promise
       .then(() => {
+        if (!isActive) return;
         setIsRendering(false);
       })
       .catch((err) => {
+        if (!isActive) return;
         // 忽略主动取消异常
         if (err?.name !== 'RenderingCancelledException') {
           console.error('Canvas 渲染失败', err);
@@ -107,9 +132,10 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
       });
 
     return () => {
+      isActive = false;
       handle.cancel();
     };
-  }, [darkPdfBytes, originalPdfBuffer, currentPage, scale, viewMode]);
+  }, [darkDoc, originalDoc, currentPage, scale, viewMode]);
 
   // 重置页码
   useEffect(() => {
@@ -218,15 +244,14 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
           </div>
         )}
 
-        {renderError ? (
+        {renderError && (
           <div className="text-xs text-rose-400 p-4 border border-rose-900/50 bg-rose-950/20 rounded">
             {renderError}
           </div>
-        ) : (
-          <div className="relative shadow-2xl rounded border border-zinc-800/80 transition-all inline-block bg-zinc-900">
-            <canvas ref={canvasRef} className="block max-w-full" />
-          </div>
         )}
+        <div className={renderError ? 'hidden' : 'relative shadow-2xl rounded border border-zinc-800/80 transition-all inline-block bg-zinc-900'}>
+            <canvas ref={canvasRef} className="block max-w-full" />
+        </div>
       </div>
 
       {/* 底部技术标注条 */}
