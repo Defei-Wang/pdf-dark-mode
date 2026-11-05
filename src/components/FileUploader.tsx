@@ -1,12 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { UploadCloud, FileText, X, CheckCircle2 } from 'lucide-react';
 import { PdfFileInfo } from '../types';
+import { Language, translations } from '../i18n/translations';
 
 interface FileUploaderProps {
   currentFile: PdfFileInfo | null;
   onFileSelect: (file: File) => void;
   onClear: () => void;
   disabled?: boolean;
+  lang: Language;
 }
 
 export const FileUploader: React.FC<FileUploaderProps> = ({
@@ -14,9 +16,11 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   onFileSelect,
   onClear,
   disabled = false,
+  lang,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const t = translations[lang];
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -41,7 +45,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
       if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         onFileSelect(file);
       } else {
-        alert('请上传有效的 .pdf 格式文件');
+        alert(t.invalidFileType);
       }
     }
   };
@@ -50,7 +54,6 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       onFileSelect(file);
-      // 重置 input 以允许再次选择相同文件
       e.target.value = '';
     }
   };
@@ -76,7 +79,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
               <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
             </div>
             <p className="text-xs text-zinc-400 font-mono mt-0.5">
-              {formatSize(currentFile.size)} · 共 {currentFile.pageCount} 页
+              {formatSize(currentFile.size)} · {t.totalPages.replace('{count}', String(currentFile.pageCount))}
             </p>
           </div>
         </div>
@@ -84,7 +87,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
         <button
           onClick={onClear}
           disabled={disabled}
-          title="移除文件并重新上传"
+          title={t.removeFile}
           className="p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors flex-shrink-0 disabled:opacity-50"
         >
           <X className="w-4 h-4" />
@@ -118,10 +121,10 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
           <UploadCloud className="w-6 h-6" />
         </div>
         <p className="text-sm font-medium text-zinc-200">
-          点击选择文件 或 拖拽 PDF 至此处
+          {t.uploadTitle}
         </p>
         <p className="text-xs text-zinc-400 mt-1">
-          支持各类论文、报告、教材与技术规范（纯前端内存处理，不经过任何服务器）
+          {t.uploadDesc}
         </p>
       </div>
     </div>

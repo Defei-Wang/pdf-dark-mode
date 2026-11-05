@@ -4,14 +4,27 @@ import { FileUploader } from './components/FileUploader';
 import { ColorSelector } from './components/ColorSelector';
 import { PdfPreview } from './components/PdfPreview';
 import { ExportSection } from './components/ExportSection';
-import { TechnicalNote } from './components/TechnicalNote';
 import { COLOR_PRESETS } from './constants/presets';
 import { ColorPreset, PdfFileInfo, ConversionResult } from './types';
 import { convertPdfToDarkMode } from './services/pdfDarkConverter';
 import { PDFDocument, StandardFonts, rgb } from '@cantoo/pdf-lib';
-import { Sparkles, FileCode2 } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import { Language, translations } from './i18n/translations';
 
 export const App: React.FC = () => {
+  const [lang, setLang] = useState<Language>(() => {
+    const saved = localStorage.getItem('pdf_dark_mode_lang');
+    return saved === 'en' || saved === 'zh' ? saved : 'zh';
+  });
+
+  const t = translations[lang];
+
+  const handleToggleLanguage = () => {
+    const nextLang: Language = lang === 'zh' ? 'en' : 'zh';
+    setLang(nextLang);
+    localStorage.setItem('pdf_dark_mode_lang', nextLang);
+  };
+
   const [currentFile, setCurrentFile] = useState<PdfFileInfo | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<ColorPreset>(COLOR_PRESETS[0]);
   const [customColor, setCustomColor] = useState<[number, number, number]>([1.0, 1.0, 1.0]);
@@ -40,22 +53,20 @@ export const App: React.FC = () => {
       } catch (err: unknown) {
         console.error('转换失败:', err);
         const errMsg = err instanceof Error ? err.message : String(err);
-        alert(`转换 PDF 失败：${errMsg}\n\n若原文档设有高强度打开密码，请先移除密码后再试。`);
+        alert(`${t.convertError}${errMsg}\n\n${t.passwordHint}`);
       } finally {
         setIsProcessing(false);
         setProgress(null);
       }
     },
-    []
+    [t.convertError, t.passwordHint]
   );
 
   // 文件选取处理
   const handleFileSelect = async (file: File) => {
     try {
       const rawBuffer = await file.arrayBuffer();
-      // ⚠️ 关键：立即固化为 Uint8Array 拷贝，彻底防止 @cantoo/pdf-lib 内部将
-      //    ArrayBuffer 作为 Transferable 传入底层引擎后导致原始 buffer detached，
-      //    之后每次调用 pdfBytes.slice 都操作这个稳定的 Uint8Array 视图。
+      // 立即固化为 Uint8Array 拷贝，防止底层引擎转移 buffer 导致 detached
       const pdfBytes = new Uint8Array(rawBuffer);
 
       // 使用 @cantoo/pdf-lib 解析页数，兼容常规带权限锁或空密码的学术/办公文档
@@ -80,7 +91,7 @@ export const App: React.FC = () => {
     } catch (err: unknown) {
       console.error('无法读取 PDF 文件', err);
       const errMsg = err instanceof Error ? err.message : String(err);
-      alert(`无法解析上传的 PDF 文件：${errMsg}\n\n请确认文件是否完整或损坏。`);
+      alert(`${t.parseError}${errMsg}\n\n${t.confirmFileIntegrity}`);
     }
   };
 
@@ -113,12 +124,11 @@ export const App: React.FC = () => {
     try {
       const bytes = result.darkPdfBytes;
 
-      // 检查 buffer 是否被 pdf.js 转移导致 detached（若修复正确则不会出现）
       if (bytes.buffer.byteLength === 0) {
-        throw new Error('内部数据已失效，请重新上传 PDF 再下载。');
+        throw new Error(t.dataInvalid);
       }
 
-      // 创建完全独立的 ArrayBuffer 切片，彻底隔离外部引用
+      // 创建完全独立的 ArrayBuffer 切片
       const safeBuffer = bytes.buffer.slice(
         bytes.byteOffset,
         bytes.byteOffset + bytes.byteLength
@@ -135,7 +145,7 @@ export const App: React.FC = () => {
       document.body.appendChild(a);
       a.click();
 
-      // 延迟回收 ObjectURL：Chromium 异步读取 Blob 流，立即 revoke 会导致 0 字节文件
+      // 延迟回收 ObjectURL，防止 Chromium 异步下载流被意外掐断
       window.setTimeout(() => {
         if (document.body.contains(a)) document.body.removeChild(a);
         URL.revokeObjectURL(url);
@@ -143,11 +153,11 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error('下载失败:', err);
       const msg = err instanceof Error ? err.message : String(err);
-      alert(`下载失败：${msg}`);
+      alert(`${t.downloadError}${msg}`);
     }
   };
 
-  // 生成内置学术论文演示 PDF，方便用户免找文件一键体验
+  // 生成学术论文演示 PDF
   const handleLoadSamplePdf = async () => {
     try {
       const sampleDoc = await PDFDocument.create();
@@ -175,7 +185,6 @@ export const App: React.FC = () => {
         color: rgb(0.35, 0.35, 0.35),
       });
 
-      // 模拟论文双栏正文与矢量数学公式
       const bodyText1 = `Abstract - Traditional PDF dark mode tools rasterize document pages into low-resolution bitmap canvases, obliterating vector typography, destroying text searchability and selection, causing catastrophic pixelation under high zoom levels. This paper introduces a direct PDF operator stream injection technique employing ExtGState /Difference blend modes.`;
 
       page1.drawText(bodyText1, {
@@ -188,7 +197,6 @@ export const App: React.FC = () => {
         color: rgb(0.15, 0.15, 0.15),
       });
 
-      // 矢量几何线框
       page1.drawLine({
         start: { x: 50, y: h1 - 190 },
         end: { x: 545, y: h1 - 190 },
@@ -212,7 +220,6 @@ export const App: React.FC = () => {
         color: rgb(0.2, 0.2, 0.2),
       });
 
-      // 公式框
       page1.drawRectangle({
         x: 70,
         y: h1 - 310,
@@ -263,7 +270,6 @@ export const App: React.FC = () => {
         color: rgb(0.1, 0.1, 0.1),
       });
 
-      // 绘制矢量图形（矩形、线条、彩色块）
       page2.drawRectangle({
         x: 50,
         y: h2 - 250,
@@ -328,7 +334,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
-      <Header />
+      <Header lang={lang} onToggleLanguage={handleToggleLanguage} />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* 上传区域与示例按钮 */}
@@ -341,6 +347,7 @@ export const App: React.FC = () => {
               setResult(null);
             }}
             disabled={isProcessing}
+            lang={lang}
           />
 
           {!currentFile && (
@@ -348,10 +355,10 @@ export const App: React.FC = () => {
               <button
                 type="button"
                 onClick={handleLoadSamplePdf}
-                className="text-xs text-sky-400 hover:text-sky-300 font-medium flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-sky-500/20 bg-sky-500/5 hover:bg-sky-500/10 transition-colors"
+                className="text-xs text-sky-400 hover:text-sky-300 font-medium flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-sky-500/20 bg-sky-500/5 hover:bg-sky-500/10 transition-colors cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>没有 PDF？一键生成并载入学术论文示例测试</span>
+                <span>{t.sampleButton}</span>
               </button>
             </div>
           )}
@@ -367,6 +374,7 @@ export const App: React.FC = () => {
             isCustom={isCustom}
             setIsCustom={setIsCustom}
             disabled={isProcessing}
+            lang={lang}
           />
         )}
 
@@ -377,6 +385,7 @@ export const App: React.FC = () => {
             result={result}
             isProcessing={isProcessing}
             onDownload={handleDownload}
+            lang={lang}
           />
         )}
 
@@ -387,19 +396,15 @@ export const App: React.FC = () => {
             darkPdfBytes={result?.darkPdfBytes ?? null}
             pageCount={currentFile.pageCount}
             isProcessing={isProcessing}
+            lang={lang}
           />
         )}
-
-        {/* 底层原理技术卡片 */}
-        <TechnicalNote />
       </main>
 
       <footer className="border-t border-zinc-900 py-6 text-center text-xs text-zinc-400">
-        <p>
-          Lossless Vector PDF Dark Mode · 纯前端纯矢量无损反转 · 部署于 GitHub Pages
-        </p>
-        <p className="mt-1 font-mono text-[11px] text-zinc-400">
-          Powered by <a href="https://github.com/Hopding/pdf-lib" target="_blank" rel="noreferrer" className="text-zinc-300 hover:underline">pdf-lib</a> & <a href="https://mozilla.github.io/pdf.js/" target="_blank" rel="noreferrer" className="text-zinc-300 hover:underline">pdfjs-dist</a>
+        <p>{t.footerText}</p>
+        <p className="mt-1 font-mono text-[11px] text-zinc-500">
+          Powered by <a href="https://github.com/Hopding/pdf-lib" target="_blank" rel="noreferrer" className="text-zinc-400 hover:underline">pdf-lib</a> & <a href="https://mozilla.github.io/pdf.js/" target="_blank" rel="noreferrer" className="text-zinc-400 hover:underline">pdfjs-dist</a>
         </p>
       </footer>
     </div>

@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadPdfJsDocument, renderPdfPage, PdfJsDocument, RenderHandle } from '../services/pdfRenderer';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Eye, Sparkles } from 'lucide-react';
+import { Language, translations } from '../i18n/translations';
 
 interface PdfPreviewProps {
   originalPdfBytes: Uint8Array | null;
   darkPdfBytes: Uint8Array | null;
   pageCount: number;
   isProcessing: boolean;
+  lang: Language;
 }
 
 export const PdfPreview: React.FC<PdfPreviewProps> = ({
@@ -14,6 +16,7 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
   darkPdfBytes,
   pageCount,
   isProcessing,
+  lang,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1.2);
@@ -25,6 +28,8 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
   const [originalDoc, setOriginalDoc] = useState<PdfJsDocument | null>(null);
   const [darkDoc, setDarkDoc] = useState<PdfJsDocument | null>(null);
   const currentRenderRef = useRef<RenderHandle | null>(null);
+
+  const t = translations[lang];
 
   // 加载原版 PDF.js 文档对象
   useEffect(() => {
@@ -136,7 +141,7 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-            <span>暗色模式效果</span>
+            <span>{t.previewDark}</span>
           </button>
           <button
             type="button"
@@ -148,7 +153,7 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>原文档对比</span>
+            <span>{t.previewOriginal}</span>
           </button>
         </div>
 
@@ -160,7 +165,7 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
               disabled={currentPage <= 1 || isRendering}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               className="p-1 hover:text-zinc-100 disabled:opacity-30"
-              title="上一页"
+              title={t.prevPage}
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
@@ -171,7 +176,7 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
               disabled={currentPage >= pageCount || isRendering}
               onClick={() => setCurrentPage((p) => Math.min(pageCount, p + 1))}
               className="p-1 hover:text-zinc-100 disabled:opacity-30"
-              title="下一页"
+              title={t.nextPage}
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
@@ -182,7 +187,7 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
             <button
               onClick={() => setScale((s) => Math.max(0.6, +(s - 0.2).toFixed(1)))}
               className="p-1 hover:text-zinc-100"
-              title="缩小"
+              title={t.zoomOut}
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
@@ -192,14 +197,14 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
             <button
               onClick={() => setScale((s) => Math.min(2.5, +(s + 0.2).toFixed(1)))}
               className="p-1 hover:text-zinc-100"
-              title="放大"
+              title={t.zoomIn}
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setScale(1.0)}
               className="p-1 hover:text-zinc-100 ml-1 border-l border-zinc-800"
-              title="重置 100%"
+              title={t.resetZoom}
             >
               <RotateCcw className="w-3 h-3" />
             </button>
@@ -213,7 +218,7 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
           <div className="absolute inset-0 bg-zinc-950/50 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center space-y-2">
             <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
             <p className="text-xs text-zinc-400 font-mono">
-              {isProcessing ? '正在转换底层图形状态...' : '正在渲染高分辨率预览...'}
+              {isProcessing ? t.converting : t.rendering}
             </p>
           </div>
         )}
@@ -229,14 +234,14 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
         )}
       </div>
 
-      {/* 底部技术标注条 */}
+      {/* 底部简洁技术状态 */}
       <div className="px-4 py-2 border-t border-zinc-800 bg-zinc-900/60 flex items-center justify-between text-[11px] text-zinc-400">
         <span className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          <span>无损矢量校验：缩放任意倍数文字无马赛克，PDF 内部文本图层完好</span>
+          <span>{t.previewFooter}</span>
         </span>
-        <span className="font-mono text-zinc-400">
-          Rendered with PDF.js (Native Worker)
+        <span className="font-mono text-zinc-500">
+          {t.renderWith}
         </span>
       </div>
     </div>

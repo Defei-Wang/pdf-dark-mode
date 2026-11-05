@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { COLOR_PRESETS } from '../constants/presets';
 import { ColorPreset } from '../types';
 import { Sliders, Check } from 'lucide-react';
+import { Language, translations } from '../i18n/translations';
 
 interface ColorSelectorProps {
   selectedPreset: ColorPreset;
@@ -11,6 +12,7 @@ interface ColorSelectorProps {
   isCustom: boolean;
   setIsCustom: (val: boolean) => void;
   disabled?: boolean;
+  lang: Language;
 }
 
 export const ColorSelector: React.FC<ColorSelectorProps> = ({
@@ -21,15 +23,17 @@ export const ColorSelector: React.FC<ColorSelectorProps> = ({
   isCustom,
   setIsCustom,
   disabled = false,
+  lang,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const t = translations[lang];
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-200">背景色调偏好</h2>
-          <p className="text-xs text-zinc-400 mt-0.5">选择 PDF 底层差值运算矩阵的映射色值</p>
+          <h2 className="text-sm font-semibold text-zinc-200">{t.colorPrefTitle}</h2>
+          <p className="text-xs text-zinc-400 mt-0.5">{t.colorPrefDesc}</p>
         </div>
         <button
           type="button"
@@ -44,7 +48,7 @@ export const ColorSelector: React.FC<ColorSelectorProps> = ({
           className="text-xs flex items-center gap-1 text-zinc-400 hover:text-zinc-200 disabled:opacity-50"
         >
           <Sliders className="w-3.5 h-3.5" />
-          <span>{showAdvanced ? '简易预设' : '自定义参数'}</span>
+          <span>{showAdvanced ? t.presetBtnSimple : t.presetBtnCustom}</span>
         </button>
       </div>
 
@@ -52,6 +56,10 @@ export const ColorSelector: React.FC<ColorSelectorProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {COLOR_PRESETS.map((preset) => {
             const isSelected = !isCustom && selectedPreset.id === preset.id;
+            const presetI18n = t.presets[preset.id as keyof typeof t.presets];
+            const name = presetI18n?.name || preset.name;
+            const desc = presetI18n?.description || preset.description;
+
             return (
               <button
                 key={preset.id}
@@ -80,10 +88,10 @@ export const ColorSelector: React.FC<ColorSelectorProps> = ({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-zinc-200">{preset.name}</span>
+                    <span className="text-xs font-medium text-zinc-200">{name}</span>
                     {isSelected && <Check className="w-3.5 h-3.5 text-sky-400" />}
                   </div>
-                  <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">{preset.description}</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">{desc}</p>
                 </div>
               </button>
             );
@@ -92,7 +100,7 @@ export const ColorSelector: React.FC<ColorSelectorProps> = ({
       ) : (
         <div className="space-y-3.5 bg-zinc-950/60 p-4 rounded-lg border border-zinc-800">
           <div className="flex items-center justify-between text-xs text-zinc-300">
-            <span>当前差值矢量 (R, G, B)</span>
+            <span>{t.currentVector}</span>
             <span className="font-mono text-sky-400">
               [{customColor[0].toFixed(2)}, {customColor[1].toFixed(2)}, {customColor[2].toFixed(2)}]
             </span>
@@ -124,7 +132,7 @@ export const ColorSelector: React.FC<ColorSelectorProps> = ({
           </div>
 
           <div className="flex items-center justify-between pt-1 text-[11px] text-zinc-500">
-            <span>说明: 差值越接近 1.0 反转对比度越高；RGB 保持一致即为纯中性灰</span>
+            <span>{t.customNote}</span>
             <button
               type="button"
               onClick={() => {
@@ -133,7 +141,7 @@ export const ColorSelector: React.FC<ColorSelectorProps> = ({
               }}
               className="text-sky-400 hover:underline"
             >
-              返回标准预设
+              {t.backToPresets}
             </button>
           </div>
         </div>
