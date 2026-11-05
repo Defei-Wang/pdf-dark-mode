@@ -22,21 +22,21 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
   const [renderError, setRenderError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const originalDocRef = useRef<PdfJsDocument | null>(null);
-  const darkDocRef = useRef<PdfJsDocument | null>(null);
+  const [originalDoc, setOriginalDoc] = useState<PdfJsDocument | null>(null);
+  const [darkDoc, setDarkDoc] = useState<PdfJsDocument | null>(null);
   const currentRenderRef = useRef<RenderHandle | null>(null);
 
   // 加载原版 PDF.js 文档对象
   useEffect(() => {
     if (!originalPdfBuffer) {
-      originalDocRef.current = null;
+      setOriginalDoc(null);
       return;
     }
 
     let isSubscribed = true;
     loadPdfJsDocument(originalPdfBuffer)
       .then((doc) => {
-        if (isSubscribed) originalDocRef.current = doc;
+        if (isSubscribed) setOriginalDoc(doc);
       })
       .catch((err) => {
         console.error('加载原始 PDF 预览失败', err);
@@ -50,14 +50,14 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
   // 加载转换后的暗色 PDF.js 文档对象
   useEffect(() => {
     if (!darkPdfBytes) {
-      darkDocRef.current = null;
+      setDarkDoc(null);
       return;
     }
 
     let isSubscribed = true;
     loadPdfJsDocument(darkPdfBytes)
       .then((doc) => {
-        if (isSubscribed) darkDocRef.current = doc;
+        if (isSubscribed) setDarkDoc(doc);
       })
       .catch((err) => {
         console.error('加载暗色 PDF 预览失败', err);
@@ -71,7 +71,7 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
 
   // 当文档、页码、缩放或显示模式变化时渲染指定页面
   useEffect(() => {
-    const activeDoc = viewMode === 'dark' ? darkDocRef.current : originalDocRef.current;
+    const activeDoc = viewMode === 'dark' ? darkDoc : originalDoc;
     const canvas = canvasRef.current;
 
     if (!activeDoc || !canvas) return;
@@ -109,7 +109,7 @@ export const PdfPreview: React.FC<PdfPreviewProps> = ({
     return () => {
       handle.cancel();
     };
-  }, [darkPdfBytes, originalPdfBuffer, currentPage, scale, viewMode]);
+  }, [darkDoc, originalDoc, currentPage, scale, viewMode]);
 
   // 重置页码
   useEffect(() => {

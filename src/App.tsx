@@ -8,7 +8,7 @@ import { TechnicalNote } from './components/TechnicalNote';
 import { COLOR_PRESETS } from './constants/presets';
 import { ColorPreset, PdfFileInfo, ConversionResult } from './types';
 import { convertPdfToDarkMode } from './services/pdfDarkConverter';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from '@cantoo/pdf-lib';
 import { Sparkles, FileCode2 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -40,7 +40,7 @@ export const App: React.FC = () => {
       } catch (err: unknown) {
         console.error('转换失败:', err);
         const errMsg = err instanceof Error ? err.message : String(err);
-        alert(`转换 PDF 失败：${errMsg}\n\n若文件被强密码加密保护，请先解除密码后再上传。`);
+        alert(`转换 PDF 失败：${errMsg}\n\n若原文档设有高强度打开密码，请先移除密码后再试。`);
       } finally {
         setIsProcessing(false);
         setProgress(null);
@@ -53,8 +53,13 @@ export const App: React.FC = () => {
   const handleFileSelect = async (file: File) => {
     try {
       const buffer = await file.arrayBuffer();
-      // 使用 pdf-lib 快速探测页数 (允许读取带有标准权限限制或空密码的常规文档)
-      const doc = await PDFDocument.load(buffer.slice(0), { ignoreEncryption: true });
+      // 使用 @cantoo/pdf-lib 解析页数，兼容常规带权限锁或空密码的学术/办公文档
+      const doc = await PDFDocument.load(buffer.slice(0), {
+        password: '',
+        ignoreEncryption: true,
+        throwOnInvalidObject: false,
+        updateMetadata: false,
+      });
       const pageCount = doc.getPageCount();
 
       const fileInfo: PdfFileInfo = {
@@ -67,9 +72,10 @@ export const App: React.FC = () => {
       setCurrentFile(fileInfo);
       const activeColor = isCustom ? customColor : selectedPreset.diffColor;
       await runConversion(fileInfo, activeColor);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('无法读取 PDF 文件', err);
-      alert('无法解析上传的 PDF 文件，请确认文件完整。');
+      const errMsg = err instanceof Error ? err.message : String(err);
+      alert(`无法解析上传的 PDF 文件：${errMsg}\n\n请确认文件是否完整或损坏。`);
     }
   };
 
@@ -95,24 +101,37 @@ export const App: React.FC = () => {
     };
   }, [currentFile, selectedPreset, customColor, isCustom, runConversion]);
 
-  // 下载导出
+  // 下载导出 (彻底修复 Chromium 浏览器 0 字节下载缺陷)
   const handleDownload = () => {
     if (!result || !currentFile) return;
 
-    // 通过 slice 创建一个明确类型的 ArrayBuffer，彻底绕开 SharedArrayBuffer 类型问题
+    // 1. 独立切片 ArrayBuffer，确保干净纯粹的二进制边界
     const bytes = result.darkPdfBytes;
-    const plainBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-    const blob = new Blob([plainBuffer], { type: 'application/pdf' });
+    const safeBuffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength
+    ) as ArrayBuffer;
+
+    // 2. 构造 application/pdf Blob
+    const blob = new Blob([safeBuffer], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const downloadName = `dark_${currentFile.name.replace(/\.pdf$/i, '')}.pdf`;
 
     const a = document.createElement('a');
     a.href = url;
     a.download = downloadName;
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+
+    // 3. 严禁立即同步 revokeObjectURL！现代 Chromium 浏览器收到 a.click 后是异步拉取 Blob 流，
+    // 若立即同步 revoke 会导致下载流中断，从而生成 0 字节空文件。延迟 60 秒足够下载完成。
+    window.setTimeout(() => {
+      if (document.body.contains(a)) {
+        document.body.removeChild(a);
+      }
+      URL.revokeObjectURL(url);
+    }, 60000);
   };
 
   // 生成内置学术论文演示 PDF，方便用户免找文件一键体验
