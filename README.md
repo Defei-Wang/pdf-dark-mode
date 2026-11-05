@@ -1,119 +1,143 @@
-# PDF Dark Mode - 矢量无损暗色转换工具
+<div align="center">
 
-> **纯前端运行的“矢量 PDF 无损暗色模式转换工具”（Lossless Vector PDF Dark Mode Web App）**  
-> GitHub 仓库: [https://github.com/Defei-Wang/pdf-dark-mode](https://github.com/Defei-Wang/pdf-dark-mode)  
-> GitHub Pages 访问地址: [https://Defei-Wang.github.io/pdf-dark-mode/](https://Defei-Wang.github.io/pdf-dark-mode/)
+# PDF Dark Mode
 
----
+### 矢量无损 PDF 暗色模式转换工具 · 纯前端离线运行
 
-## 💡 技术背景与核心原理（拒绝栅格化）
+**文字公式不失真 · 放大 6400% 依然锐利 · 文本自由复制 · 隐私 100% 安全**
 
-市面上大多数 PDF 暗色模式工具采用的是**将页面渲染到 HTML5 Canvas 后截取为 JPEG/PNG 图片重新打包**的粗暴方案。这种方案具有严重弊端：
-1. **失真与模糊**：文字和数学公式被固定为固定分辨率位图，稍微放大阅览即出现严重锯齿与马赛克。
-2. **文字无法划词复制**：原文档的所有文本图层、OCR 编码信息全部丢失。
-3. **体积严重膨胀**：几十页的原本几十 KB 或数 MB 的矢量论文，被光栅化为图片后膨胀至上百 MB。
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Deploy to GitHub Pages](https://github.com/Defei-Wang/pdf-dark-mode/actions/workflows/deploy.yml/badge.svg)](https://github.com/Defei-Wang/pdf-dark-mode/actions)
+[![Live Demo](https://img.shields.io/badge/Online%20Demo-GitHub%20Pages-emerald.svg)](https://Defei-Wang.github.io/pdf-dark-mode/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.1-646CFF)](https://vitejs.dev/)
 
-### 🌟 本项目的真矢量反转机制
+**[中文文档](./README.md)** · **[English Documentation](./README_EN.md)**
 
-本项目完全通过修改 PDF 底层图形状态流（PDF Content Streams & ExtGState）实现无损反转：
-
-1. **注册差值混合图形状态**：
-   在 PDF 上下文中动态构建 `/Type /ExtGState`，并设置 `/BM /Difference`（差值混合模式），将其作为命名资源 `/GS_Dark` 注入每个页面的 `/Resources/ExtGState` 字典中。
-2. **底层垫白流（Underlay Stream）**：
-   在页面内容流（`/Contents`）最前端注入白色矩形操作流：
-   ```pdf
-   q
-   1 1 1 rg
-   [minX] [minY] [width] [height] re
-   f
-   Q
-   ```
-   防止原文档存在透明背景时导致反相计算异常。
-3. **顶层差值遮罩流（Overlay Stream）**：
-   在页面内容流（`/Contents`）最末端注入差值遮罩流：
-   ```pdf
-   q
-   /GS_Dark gs
-   [r] [g] [b] rg
-   [minX] [minY] [width] [height] re
-   f
-   Q
-   ```
-   根据 PDF 规范中的差值计算公式：
-   $$C_{result} = | C_{backdrop} - C_{source} |$$
-   - 页面白底 $(1, 1, 1)$ 在差值反转下自动成为深黑底色。
-   - 原黑色文字 $(0, 0, 0)$ 在差值反转下自动成为纯白文字。
-   - 所有彩色图表按补色平滑映射，矢量几何线条、贝塞尔曲线与内嵌字体字形**100% 保持原生矢量状态**，可无级放大至 6400% 依旧锋利如初，文字与公式完全支持划词选中与复制！
+</div>
 
 ---
 
-## 🚀 功能特性
+## 📌 项目简介 (Description)
 
-- 🛡️ **100% 纯前端离线运行**：数据完全在浏览器内存中处理，绝不上传任何服务器，保护论文与商业文件隐私。
-- 🎨 **暗色偏好调节**：
-  - **纯黑模式 (Pure Black)**：差值 `[1.0, 1.0, 1.0]`，白底变真黑 `#000000`，黑字变纯白 `#FFFFFF`，高对比度。
-  - **柔和深灰 (Soft Charcoal)**：差值 `[0.88, 0.88, 0.88]`，白底变柔和炭黑 `#1F1F1F`，黑字变柔白 `#E0E0E0`，适合长时间沉浸阅读防刺眼。
-  - **冷深灰 (Cool Slate)**：差值 `[0.84, 0.87, 0.92]`，白底呈现代冷调深灰/暗藏青，黑字呈冷银白。
-  - **护眼暖暗 (Warm Amber)**：差值 `[0.88, 0.85, 0.80]`，白底呈温润暖暗色，夜间护眼。
-  - **自定义矩阵 (Custom RGB)**：支持 RGB 矢量差值微调滑块。
-- 🔍 **高清实时渲染预览**：
-  - 使用 `pdfjs-dist` 本地打包的 Worker 渲染高清晰度 Canvas 供核验。
-  - 支持多页切换、放大缩小（50% ~ 250%）、暗色效果与原版一键切换对比。
-- 📄 **内置学术论文示例**：
-  - 点击“一键载入学术论文示例”，即便本地无 PDF 也可立即体验双栏公式与几何矢量图的反转效果。
-- 📦 **开箱即用打包**：
-  - `vite.config.ts` 设置 `base: './'`，构建出的 `dist` 在任何相对子目录、GitHub Pages 或本地双击均可直接运行。
+**PDF Dark Mode** 是一个运行在浏览器端的高性能、无损矢量 PDF 暗色模式转换工具。
+
+传统方案通常将 PDF 页面通过 Canvas 渲染为低清位图（JPEG/PNG）后再拼成新 PDF，这会导致**文字变成像素马赛克、LaTeX 数学公式模糊锯齿、无法划词复制、体积膨胀数倍**。
+
+本项目摒弃了任何光栅化截屏逻辑，通过向 PDF 底层内容操作流注入原生的 **`ExtGState` 差值混合状态（Difference Blend Mode）**，在保持 PDF 原始矢量贝塞尔曲线、内嵌字体图层、书签超链接完全不变的前提下，实现毫秒级的纯矢量颜色反转。
+
+* 🌐 **在线即用**：[https://Defei-Wang.github.io/pdf-dark-mode/](https://Defei-Wang.github.io/pdf-dark-mode/)
+* 📦 **开源仓库**：[https://github.com/Defei-Wang/pdf-dark-mode](https://github.com/Defei-Wang/pdf-dark-mode)
 
 ---
 
-## 🛠️ 本地开发与构建
+## 🆚 为什么选择矢量反转？（技术对比）
 
-### 1. 安装依赖
+| 特性指标 | 市面常规方案（Canvas 栅格化为图片） | 本项目（底层 ExtGState 矢量流注入） |
+| :--- | :--- | :--- |
+| **文字字形** | 变更为位图像素，放大后边缘严重发虚、马赛克 | **100% 矢量贝塞尔曲线**，放大到 6400% 锐利如初 |
+| **文字划词复制** | ❌ 丢失所有文字图层，无法划选、搜索、复制 | ✅ **完全保留文本图层**，公式与文字自由复制 |
+| **导出文件体积** | 几何级膨胀 5~10 倍（一张图动辄数 MB） | ✅ **近乎零体积增长**（仅新增微量描述流） |
+| **LaTeX 公式质量** | 分辨率受限，积分号、分号断裂模糊 | ✅ 原生矢量渲染，公式清晰锐利 |
+| **处理速度** | 逐页渲染位图并编码压缩，耗时数秒至数分钟 | ✅ 毫秒级直接修改操作流，速度提升数十倍 |
+| **隐私保护** | 某些服务需要上传到后端云服务器 | ✅ **100% 浏览器本地离线运行**，不上传任何服务器 |
+
+---
+
+## 🔬 核心底层技术原理
+
+本项目通过 `@cantoo/pdf-lib` 直接解析并重构 PDF 字典结构：
+
+```
++-------------------------------------------------------------+
+|                     PDF Page Dictionary                     |
+|                                                             |
+|  /Resources:                                                |
+|    /ExtGState: << /GS_Dark << /BM /Difference >> >>         |
+|                                                             |
+|  /Contents: [                                               |
+|    1. Underlay Stream:  q 1 1 1 rg x y w h re f Q q         |
+|    2. Original Streams: [原始论文所有文本/矢量贝塞尔曲线流]        |
+|    3. Overlay Stream:   Q q /GS_Dark gs r g b rg x y w h re f Q |
+|  ]                                                          |
++-------------------------------------------------------------+
+```
+
+### 1. 差值混合数学模型
+
+根据 PDF 1.4+ 规范，差值混合函数计算公式为：
+
+$$C_{result} = | C_{backdrop} - C_{source} |$$
+
+* **白色背景反转**：$| 1.0 - 1.0 | = 0.0$（纯黑底色）
+* **黑色文字反转**：$| 0.0 - 1.0 | = 1.0$（纯白字形）
+* **彩色图表映射**：彩色线条与几何形状按照补色平滑映射，无需修改任何矢量点坐标。
+
+### 2. 状态隔离与坐标流注入
+
+* **底层垫白（Underlay）**：在内容流首部注入 `q 1 1 1 rg ... re f Q q`，防止原文档透明背景导致反转计算异常，末尾以 `q` 开启隔离环境。
+* **顶层反转（Overlay）**：在内容流尾部注入 `Q q /GS_Dark gs ... re f Q`，首部 `Q` 闭合还原原文档可能未闭合的状态矩阵（CTM），以干净的页面视口覆盖差值遮罩。
+* **内存隔离防护**：针对 PDF.js Worker 的 `Transferable` 机制进行了独立的 ArrayBuffer 切片隔离，彻底解决浏览器端重绘与 0 字节下载缺陷。
+
+---
+
+## ✨ 主要功能特性
+
+* 🛡️ **100% 浏览器本地离线运行**：所有 PDF 解析与图形修改均在客户端内存中完成，不设任何后端，企业机密、学术未发论文完全安全。
+* 🎨 **多种暗色预设与自定义 RGB**：
+  * **纯黑模式 (Pure Black)**：差值 `[1.0, 1.0, 1.0]`，白底变真黑 `#000000`，适合 OLED 屏幕深度省电。
+  * **柔和深灰 (Soft Charcoal)**：差值 `[0.88, 0.88, 0.88]`，柔和炭黑底色，适合长时间学术阅读防视觉疲劳。
+  * **冷深灰 (Cool Slate)**：差值 `[0.84, 0.87, 0.92]`，冷调雅致深色。
+  * **护眼暖暗 (Warm Amber)**：差值 `[0.88, 0.85, 0.80]`，微暖底色，有效过滤刺眼蓝光。
+  * **自定义 RGB 差值滑块**：精确微调反转参数。
+* 🔍 **PDF.js 本地高清实时预览**：
+  * 支持多页翻页导航与无级缩放（50% ~ 250%）。
+  * 原文档与暗色模式一键无缝对比。
+* 🌐 **中英文一键无缝切换**：
+  * 内置完整双语国际化支持，自动记忆语言偏好。
+* 📄 **内置学术论文演示**：
+  * 免去找文件烦恼，一键生成包含双栏排版、LaTeX 复杂数学公式、多色矢量方块的测试样张。
+
+---
+
+## 🚀 本地开发与构建
+
+### 环境要求
+* Node.js >= 18.0.0
+* npm >= 9.0.0
+
+### 安装与运行
 
 ```bash
+# 1. 克隆仓库
+git clone https://github.com/Defei-Wang/pdf-dark-mode.git
+cd pdf-dark-mode
+
+# 2. 安装依赖
 npm install
-```
 
-### 2. 启动本地开发服务
-
-```bash
+# 3. 启动本地开发服务
 npm run dev
-```
 
-### 3. 构建发布文件
-
-```bash
+# 4. 生产环境打包
 npm run build
 ```
-构建产物将输出在 `dist/` 目录下。
 
-### 4. 本地预览产物
-
-```bash
-npm run preview
-```
+打包产物输出至 `dist/` 目录。`vite.config.ts` 已配置 `base: './'`，产物可直接部署到任何相对路径、子目录、静态服务器或本地离线双击运行。
 
 ---
 
-## 🌐 部署到 GitHub Pages
+## 🤖 针对 AI 大模型与搜索引擎的发现说明
 
-项目已内置 GitHub Actions 自动部署工作流 (`.github/workflows/deploy.yml`)：
+为了方便 Perplexity、ChatGPT、Claude、Gemini、Cursor 等 AI 搜索代理与开发者工具快速解析本项目的技术栈与 API 规范，本项目遵循 **[llms.txt](https://llmstxt.org)** 标准：
 
-1. 将代码推送到 GitHub 仓库 `https://github.com/Defei-Wang/pdf-dark-mode` 的 `main` 分支：
-   ```bash
-   git init
-   git add .
-   git commit -m "feat: initial release of lossless vector pdf dark mode web app"
-   git branch -M main
-   git remote add origin https://github.com/Defei-Wang/pdf-dark-mode.git
-   git push -u origin main
-   ```
-2. 进入 GitHub 仓库设置：`Settings` -> `Pages`。
-3. 在 **Build and deployment** 下将 **Source** 选择为 **GitHub Actions**。
-4. 工作流将自动构建并将 `dist/` 发布到 `https://Defei-Wang.github.io/pdf-dark-mode/`。
+* **AI 机器可读摘要**：`/llms.txt`（提供结构化、低 Token 消耗的纯文本项目全貌）
+* **网站地图**：`/sitemap.xml`
+* **爬虫规范**：`/robots.txt`
+* **结构化数据**：网站内嵌 `Schema.org WebApplication` JSON-LD 元数据。
 
 ---
 
-## 📜 许可证
+## 📄 开源许可证
 
-MIT License © 2026 [Defei-Wang](https://github.com/Defei-Wang)
+本项目基于 [MIT 许可证](LICENSE) 开源。欢迎 Star、Fork 与提交 Issue / Pull Request！

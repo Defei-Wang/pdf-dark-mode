@@ -1,0 +1,30 @@
+# PDF Dark Mode
+
+> Lossless Vector PDF Dark Mode Web Application. Converts PDF documents into dark mode completely client-side in the browser by injecting native ExtGState Difference blend mode operator streams, preserving 100% vector typography, text searchability, LaTeX formulas, and small file sizes without any canvas bitmap rasterization.
+
+## Overview
+
+- **Repository**: https://github.com/Defei-Wang/pdf-dark-mode
+- **Live Demo**: https://Defei-Wang.github.io/pdf-dark-mode/
+- **Author**: Defei Wang (https://github.com/Defei-Wang)
+- **License**: MIT
+- **Tech Stack**: React 18, TypeScript 5.7, Vite 6, Tailwind CSS 3, @cantoo/pdf-lib, pdfjs-dist.
+
+## Key Technical Differentiation
+
+Unlike typical PDF dark mode converters that rasterize pages to canvas bitmaps (JPEG/PNG), causing text pixelation, loss of selectable text, formula degradation, and 10x file size expansion, this tool operates directly on PDF content streams:
+
+1. Injects a graphics state dictionary `<< /Type /ExtGState /BM /Difference >>` as `/GS_Dark`.
+2. Prepends an underlay stream `q 1 1 1 rg [x y w h] re f Q q` to provide an opaque white backdrop.
+3. Appends an overlay stream `Q q /GS_Dark gs [r g b] rg [x y w h] re f Q` to invert colors using the PDF 1.4 Difference blend mode: `| C_backdrop - C_source |`.
+4. All vector beziers, embedded fonts, and OCR text layers remain completely intact and selectable up to 6400% zoom.
+5. All processing is 100% offline and in-memory; no files are ever sent to an external server.
+
+## Features
+
+- **Privacy-first**: Zero server uploads, runs locally in the browser memory heap.
+- **Color Presets**: Pure Black [1.0, 1.0, 1.0], Soft Charcoal [0.88, 0.88, 0.88], Cool Slate [0.84, 0.87, 0.92], Warm Amber [0.88, 0.85, 0.80], plus custom RGB sliders.
+- **Real-Time HiDPI Preview**: Powered by local pdfjs-dist worker with side-by-side original comparison.
+- **Bilingual**: One-click language switch between English and Chinese with persistent storage.
+- **Zero-Byte Download Protection**: Safe typed array slicing and delayed URL revocation to prevent chromium download stream drops.
+- **Encrypted/Permission PDF Support**: Uses @cantoo/pdf-lib for seamless handling of standard permission-restricted and empty-password documents.
