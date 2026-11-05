@@ -3,14 +3,14 @@ import { loadPdfJsDocument, renderPdfPage, PdfJsDocument, RenderHandle } from '.
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Eye, Sparkles } from 'lucide-react';
 
 interface PdfPreviewProps {
-  originalPdfBuffer: ArrayBuffer | null;
+  originalPdfBytes: Uint8Array | null;
   darkPdfBytes: Uint8Array | null;
   pageCount: number;
   isProcessing: boolean;
 }
 
 export const PdfPreview: React.FC<PdfPreviewProps> = ({
-  originalPdfBuffer,
+  originalPdfBytes: originalPdfBuffer,
   darkPdfBytes,
   pageCount,
   isProcessing,

@@ -15,14 +15,18 @@ export interface ConvertOptions {
  * 使用现代 @cantoo/pdf-lib 引擎，原生支持标准加密/权限限制文档的自动解密。
  */
 export async function convertPdfToDarkMode(
-  pdfBuffer: ArrayBuffer,
+  pdfBytes: Uint8Array,
   options: ConvertOptions
 ): Promise<ConversionResult> {
   const startTime = performance.now();
   const { diffColor, password = '', onProgress } = options;
 
-  // 1. 使用支持解密的引擎解析 PDF，自动解除常规权限限制与空密码保护
-  const pdfDoc = await PDFDocument.load(pdfBuffer.slice(0), {
+  // 1. 安全拷贝字节，防止外部 ArrayBuffer 被 pdf-lib 内部 transfer 后 detached 导致
+  //    "Cannot perform ArrayBuffer.prototype.slice on a detached ArrayBuffer"
+  const safeBytes = new Uint8Array(pdfBytes);
+
+  // 2. 使用支持解密的引擎解析 PDF，自动解除常规权限限制与空密码保护
+  const pdfDoc = await PDFDocument.load(safeBytes, {
     password,
     ignoreEncryption: true,
     throwOnInvalidObject: false,
@@ -32,7 +36,6 @@ export async function convertPdfToDarkMode(
   const context = pdfDoc.context;
 
   // 2. 构造 ExtGState 字典并注册到 PDF 上下文
-  // << /Type /ExtGState /BM /Difference >>
   const extGStateDict = context.obj({
     Type: 'ExtGState',
     BM: 'Difference',

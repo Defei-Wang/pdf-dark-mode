@@ -12,7 +12,8 @@ export interface ColorPreset {
 export interface PdfFileInfo {
   name: string;
   size: number;
-  arrayBuffer: ArrayBuffer;
+  /** 文件原始字节，以 Uint8Array 存储，避免 ArrayBuffer 被 pdf-lib 内部转移后 detached */
+  pdfBytes: Uint8Array;
   pageCount: number;
 }
 

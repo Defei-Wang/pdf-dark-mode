@@ -30,7 +30,7 @@ export const App: React.FC = () => {
       setProgress({ current: 0, total: fileInfo.pageCount });
 
       try {
-        const conversion = await convertPdfToDarkMode(fileInfo.arrayBuffer, {
+        const conversion = await convertPdfToDarkMode(fileInfo.pdfBytes, {
           diffColor,
           onProgress: (current, total) => {
             setProgress({ current, total });
@@ -52,9 +52,14 @@ export const App: React.FC = () => {
   // 文件选取处理
   const handleFileSelect = async (file: File) => {
     try {
-      const buffer = await file.arrayBuffer();
+      const rawBuffer = await file.arrayBuffer();
+      // ⚠️ 关键：立即固化为 Uint8Array 拷贝，彻底防止 @cantoo/pdf-lib 内部将
+      //    ArrayBuffer 作为 Transferable 传入底层引擎后导致原始 buffer detached，
+      //    之后每次调用 pdfBytes.slice 都操作这个稳定的 Uint8Array 视图。
+      const pdfBytes = new Uint8Array(rawBuffer);
+
       // 使用 @cantoo/pdf-lib 解析页数，兼容常规带权限锁或空密码的学术/办公文档
-      const doc = await PDFDocument.load(buffer.slice(0), {
+      const doc = await PDFDocument.load(new Uint8Array(pdfBytes), {
         password: '',
         ignoreEncryption: true,
         throwOnInvalidObject: false,
@@ -65,7 +70,7 @@ export const App: React.FC = () => {
       const fileInfo: PdfFileInfo = {
         name: file.name,
         size: file.size,
-        arrayBuffer: buffer,
+        pdfBytes,
         pageCount,
       };
 
@@ -301,7 +306,7 @@ export const App: React.FC = () => {
       const fileInfo: PdfFileInfo = {
         name: 'academic_sample_paper.pdf',
         size: sampleBytes.byteLength,
-        arrayBuffer: sampleBytes.buffer as ArrayBuffer,
+        pdfBytes: new Uint8Array(sampleBytes),
         pageCount: 2,
       };
 
@@ -370,7 +375,7 @@ export const App: React.FC = () => {
         {/* 实时高分辨率核验预览 */}
         {currentFile && (
           <PdfPreview
-            originalPdfBuffer={currentFile.arrayBuffer}
+            originalPdfBytes={currentFile.pdfBytes}
             darkPdfBytes={result?.darkPdfBytes ?? null}
             pageCount={currentFile.pageCount}
             isProcessing={isProcessing}
