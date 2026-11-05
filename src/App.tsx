@@ -22,10 +22,14 @@ export const App: React.FC = () => {
   const [result, setResult] = useState<ConversionResult | null>(null);
 
   const debounceTimerRef = useRef<number | null>(null);
+  // 转换请求序号：用户连续切换配色时，只允许最后一次点击的结果生效，
+  // 否则先发起的转换可能后返回，把画面覆盖成旧配色（表现为“点纯黑却显示冷深灰”）。
+  const conversionSeqRef = useRef(0);
 
   // 执行矢量暗色转换
   const runConversion = useCallback(
     async (fileInfo: PdfFileInfo, diffColor: [number, number, number]) => {
+      const seq = ++conversionSeqRef.current;
       setIsProcessing(true);
       setProgress({ current: 0, total: fileInfo.pageCount });
 
@@ -33,17 +37,21 @@ export const App: React.FC = () => {
         const conversion = await convertPdfToDarkMode(fileInfo.arrayBuffer, {
           diffColor,
           onProgress: (current, total) => {
-            setProgress({ current, total });
+            if (seq === conversionSeqRef.current) setProgress({ current, total });
           },
         });
+        if (seq !== conversionSeqRef.current) return;
         setResult(conversion);
       } catch (err: unknown) {
+        if (seq !== conversionSeqRef.current) return;
         console.error('转换失败:', err);
         const errMsg = err instanceof Error ? err.message : String(err);
         alert(`转换 PDF 失败：${errMsg}\n\n若文件被强密码加密保护，请先解除密码后再上传。`);
       } finally {
-        setIsProcessing(false);
-        setProgress(null);
+        if (seq === conversionSeqRef.current) {
+          setIsProcessing(false);
+          setProgress(null);
+        }
       }
     },
     []
@@ -65,8 +73,6 @@ export const App: React.FC = () => {
       };
 
       setCurrentFile(fileInfo);
-      const activeColor = isCustom ? customColor : selectedPreset.diffColor;
-      await runConversion(fileInfo, activeColor);
     } catch (err) {
       console.error('无法读取 PDF 文件', err);
       alert('无法解析上传的 PDF 文件，请确认文件完整。');
@@ -78,6 +84,8 @@ export const App: React.FC = () => {
     if (!currentFile) return;
 
     const activeColor = isCustom ? customColor : selectedPreset.diffColor;
+    setResult(null);
+    setIsProcessing(true);
 
     if (debounceTimerRef.current) {
       window.clearTimeout(debounceTimerRef.current);
@@ -89,6 +97,8 @@ export const App: React.FC = () => {
     }, 150);
 
     return () => {
+      // 配色变化或移除文件时立即失效，覆盖防抖等待期间的旧请求。
+      conversionSeqRef.current++;
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);
       }
@@ -287,8 +297,6 @@ export const App: React.FC = () => {
       };
 
       setCurrentFile(fileInfo);
-      const activeColor = isCustom ? customColor : selectedPreset.diffColor;
-      await runConversion(fileInfo, activeColor);
     } catch (e) {
       console.error('加载示例失败', e);
     }
